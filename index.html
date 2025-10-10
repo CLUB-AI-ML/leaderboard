@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECA-ML-Club Leaderboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            line-height: 1.5;
+            padding: 24px;
+        }
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+        header {
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #21262d;
+        }
+        header h1 {
+            font-size: 32px;
+            font-weight: 600;
+            color: #c9d1d9;
+            margin-bottom: 8px;
+        }
+        header p {
+            font-size: 14px;
+            color: #8b949e;
+        }
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 16px;
+        }
+        .stat-card h3 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #58a6ff;
+            margin-bottom: 4px;
+        }
+        .stat-card p {
+            font-size: 12px;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .search-section {
+            margin-bottom: 16px;
+        }
+        .search-box {
+            width: 100%;
+            max-width: 400px;
+            padding: 5px 12px;
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #c9d1d9;
+            transition: border-color 0.2s ease;
+        }
+        .search-box:focus {
+            outline: none;
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+        }
+        .search-box::placeholder {
+            color: #8b949e;
+        }
+        .leaderboard-card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .table-header {
+            background-color: #161b22;
+            padding: 16px;
+            border-bottom: 1px solid #30363d;
+        }
+        .table-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #c9d1d9;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        thead {
+            background-color: #161b22;
+        }
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #21262d;
+        }
+        tbody tr {
+            border-bottom: 1px solid #21262d;
+            transition: background-color 0.1s ease;
+            cursor: pointer;
+        }
+        tbody tr:hover {
+            background-color: rgba(139, 148, 158, 0.1);
+        }
+        tbody tr:last-child {
+            border-bottom: none;
+        }
+        td {
+            padding: 12px 16px;
+            font-size: 14px;
+        }
+        .rank {
+            font-weight: 600;
+            color: #8b949e;
+            font-size: 14px;
+            min-width: 40px;
+        }
+        .rank-1 { color: #ffd700; font-size: 16px; }
+        .rank-2 { color: #c0c0c0; font-size: 16px; }
+        .rank-3 { color: #cd7f32; font-size: 16px; }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #58a6ff, #1f6feb);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: white;
+            font-size: 14px;
+        }
+        .username {
+            color: #58a6ff;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.1s ease;
+        }
+        .username:hover {
+            color: #79c0ff;
+            text-decoration: underline;
+        }
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0 7px;
+            height: 20px;
+            border-radius: 2em;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid transparent;
+        }
+        .role-lead {
+            color: #f85149;
+            background-color: rgba(248, 81, 73, 0.1);
+            border-color: rgba(248, 81, 73, 0.4);
+        }
+        .role-contributor {
+            color: #58a6ff;
+            background-color: rgba(88, 166, 255, 0.1);
+            border-color: rgba(88, 166, 255, 0.4);
+        }
+        .role-member {
+            color: #56d364;
+            background-color: rgba(86, 211, 100, 0.1);
+            border-color: rgba(86, 211, 100, 0.4);
+        }
+        .points {
+            font-size: 16px;
+            font-weight: 600;
+            color: #c9d1d9;
+        }
+        .points-high {
+            color: #56d364;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(1, 4, 9, 0.8);
+            z-index: 1000;
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+        }
+        .modal-content {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            max-width: 500px;
+            margin: 100px auto;
+            border-radius: 6px;
+            box-shadow: 0 16px 32px rgba(1, 4, 9, 0.85);
+            position: relative;
+        }
+        .modal-header {
+            padding: 16px;
+            border-bottom: 1px solid #21262d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #c9d1d9;
+        }
+        .close-btn {
+            font-size: 24px;
+            cursor: pointer;
+            color: #8b949e;
+            transition: color 0.1s ease;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .close-btn:hover {
+            color: #c9d1d9;
+        }
+        .modal-body {
+            padding: 16px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #21262d;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-size: 14px;
+            color: #8b949e;
+            font-weight: 500;
+        }
+        .info-value {
+            font-size: 14px;
+            color: #c9d1d9;
+            font-weight: 500;
+        }
+        .info-value a {
+            color: #58a6ff;
+            text-decoration: none;
+        }
+        .info-value a:hover {
+            text-decoration: underline;
+        }
+        .no-results {
+            text-align: center;
+            padding: 48px 16px;
+            color: #8b949e;
+            font-size: 14px;
+        }
+        .trophy {
+            margin-right: 4px;
+        }
+        @media (max-width: 768px) {
+            body { padding: 16px; }
+            header h1 { font-size: 24px; }
+            th, td { padding: 8px 12px; font-size: 12px; }
+            .avatar { width: 24px; height: 24px; font-size: 12px; }
+            .modal-content { margin: 50px 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏆 ECA-ML-Club Leaderboard</h1>
+            <p>Tracking contributions and achievements across the organization</p>
+        </header>
+
+        <div class="stats-container">
+            <div class="stat-card">
+                <h3 id="totalMembers">0</h3>
+                <p>Total Members</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="totalPoints">0</h3>
+                <p>Points Awarded</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="activeContributors">0</h3>
+                <p>Active Contributors</p>
+            </div>
+        </div>
+
+        <div class="search-section">
+            <input type="text" class="search-box" id="searchInput" placeholder="Search members...">
+        </div>
+
+        <div class="leaderboard-card">
+            <div class="table-header">
+                <h2>Rankings</h2>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Member</th>
+                            <th>Role</th>
+                            <th style="text-align: right;">Points</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="memberModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalUsername"></h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="info-row">
+                    <span class="info-label">Full Name</span>
+                    <span class="info-value" id="modalFullName"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Branch</span>
+                    <span class="info-value" id="modalBranch"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Year</span>
+                    <span class="info-value" id="modalYear"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Role</span>
+                    <span class="info-value" id="modalRole"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total Points</span>
+                    <span class="info-value" id="modalPoints"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">GitHub Profile</span>
+                    <span class="info-value"><a id="modalGithubLink" href="#" target="_blank">View Profile →</a></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============== CONFIGURATION ==============
+        const SUPABASE_URL = 'https://skdxtndsbwkjnoahsotj.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrZHh0bmRzYndram5vYWhzb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAwODk3ODQsImV4cCI6MjA3NTY2NTc4NH0.WI5kMsF40iz7sEGfiV6z9i2kbE5kusPrhUHb2X01HYE'; 
+        // =========================================
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let membersData = [];
+        let filteredData = [];
+
+        async function fetchMembers() {
+            const { data, error } = await supabase
+                .from('members')
+                .select('*')
+                .order('points', { ascending: false });
+            if (error) {
+                console.error('Error fetching data:', error);
+                return;
+            }
+            if (data) {
+                membersData = data;
+                filteredData = [...membersData];
+                init();
+            }
+        }
+        
+        function init() {
+            updateStats();
+            renderLeaderboard(filteredData);
+            setupSearch();
+        }
+
+        function updateStats() {
+            document.getElementById('totalMembers').textContent = membersData.length;
+            const totalPoints = membersData.reduce((sum, member) => sum + member.points, 0);
+            document.getElementById('totalPoints').textContent = totalPoints.toLocaleString();
+            const activeContributors = membersData.filter(m => m.points > 50).length;
+            document.getElementById('activeContributors').textContent = activeContributors;
+        }
+
+        function getInitials(name) {
+            if (!name) return '??';
+            return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+        }
+
+        function renderLeaderboard(data) {
+            const tbody = document.getElementById('leaderboardBody');
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="no-results">No members found</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map((member, index) => {
+                const rank = index + 1;
+                const rankClass = rank <= 3 ? `rank-${rank}` : '';
+                const roleClass = `role-${(member.role || 'member').toLowerCase()}`;
+                const trophy = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+                const pointsClass = member.points >= 200 ? 'points-high' : '';
+                const initials = getInitials(member.full_name);
+                return `
+                    <tr onclick="showMemberDetails(${member.id})">
+                        <td><span class="rank ${rankClass}">${trophy} #${rank}</span></td>
+                        <td>
+                            <div class="user-info">
+                                <div class="avatar">${initials}</div>
+                                <a href="https://github.com/${member.github_username}" target="_blank" class="username" onclick="event.stopPropagation()">${member.github_username}</a>
+                            </div>
+                        </td>
+                        <td><span class="role-badge ${roleClass}">${member.role}</span></td>
+                        <td style="text-align: right;"><span class="points ${pointsClass}">${member.points}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function setupSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                filteredData = membersData.filter(member => 
+                    member.github_username.toLowerCase().includes(query) ||
+                    (member.full_name && member.full_name.toLowerCase().includes(query))
+                );
+                renderLeaderboard(filteredData);
+            });
+        }
+
+        function showMemberDetails(memberId) {
+            const member = membersData.find(m => m.id === memberId);
+            if (!member) return;
+            document.getElementById('modalUsername').textContent = member.github_username;
+            document.getElementById('modalFullName').textContent = member.full_name || 'N/A';
+            document.getElementById('modalBranch').textContent = member.branch || 'N/A';
+            document.getElementById('modalYear').textContent = member.year ? `Year ${member.year}` : 'N/A';
+            document.getElementById('modalRole').textContent = member.role;
+            document.getElementById('modalPoints').textContent = member.points;
+            document.getElementById('modalGithubLink').href = `https://github.com/${member.github_username}`;
+            document.getElementById('memberModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('memberModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('memberModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+        
+        // Initial load
+        fetchMembers();
+
+        // Optional: Auto-refresh the leaderboard every 60 seconds
+        setInterval(fetchMembers, 60000);
+    </script>
+</body>
+</html>
