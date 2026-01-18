@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ECA-ML-Club Leaderboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
             margin: 0;
@@ -341,7 +340,7 @@
                         </tr>
                     </thead>
                     <tbody id="leaderboardBody">
-                        </tbody>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -354,18 +353,6 @@
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="info-row">
-                    <span class="info-label">Full Name</span>
-                    <span class="info-value" id="modalFullName"></span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Branch</span>
-                    <span class="info-value" id="modalBranch"></span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Year</span>
-                    <span class="info-value" id="modalYear"></span>
-                </div>
                 <div class="info-row">
                     <span class="info-label">Role</span>
                     <span class="info-value" id="modalRole"></span>
@@ -384,27 +371,30 @@
 
     <script>
         // ============== CONFIGURATION ==============
-        const SUPABASE_URL = 'https://skdxtndsbwkjnoahsotj.supabase.co'; 
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrZHh0bmRzYndram5vYWhzb3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAwODk3ODQsImV4cCI6MjA3NTY2NTc4NH0.WI5kMsF40iz7sEGfiV6z9i2kbE5kusPrhUHb2X01HYE'; 
+        // No hardcoded keys needed! Fetching from your secure backend.
+        const API_URL = 'https://club-ai-ml-backend.vercel.app/api/leaderboard';
         // =========================================
 
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let membersData = [];
         let filteredData = [];
 
         async function fetchMembers() {
-            const { data, error } = await supabase
-                .from('members')
-                .select('*')
-                .order('points', { ascending: false });
-            if (error) {
+            try {
+                // Fetch data from Vercel Backend
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                
+                if (data) {
+                    membersData = data;
+                    filteredData = [...membersData];
+                    init();
+                }
+            } catch (error) {
                 console.error('Error fetching data:', error);
-                return;
-            }
-            if (data) {
-                membersData = data;
-                filteredData = [...membersData];
-                init();
+                const tbody = document.getElementById('leaderboardBody');
+                tbody.innerHTML = '<tr><td colspan="4" class="no-results">Error loading leaderboard. Please try again later.</td></tr>';
             }
         }
         
@@ -424,7 +414,8 @@
 
         function getInitials(name) {
             if (!name) return '??';
-            return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            // Use username for initials since full_name might not exist in DB yet
+            return name.substring(0, 2).toUpperCase();
         }
 
         function renderLeaderboard(data) {
@@ -439,14 +430,18 @@
                 const roleClass = `role-${(member.role || 'member').toLowerCase()}`;
                 const trophy = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
                 const pointsClass = member.points >= 200 ? 'points-high' : '';
-                const initials = getInitials(member.full_name);
+                
+                // Use 'username' from DB (fallback to '??' if missing)
+                const displayName = member.username || 'Unknown';
+                const initials = getInitials(displayName);
+
                 return `
-                    <tr onclick="showMemberDetails(${member.id})">
+                    <tr onclick="showMemberDetails('${member.username}')">
                         <td><span class="rank ${rankClass}">${trophy} #${rank}</span></td>
                         <td>
                             <div class="user-info">
                                 <div class="avatar">${initials}</div>
-                                <a href="https://github.com/${member.github_username}" target="_blank" class="username" onclick="event.stopPropagation()">${member.github_username}</a>
+                                <a href="https://github.com/${member.username}" target="_blank" class="username" onclick="event.stopPropagation()">${displayName}</a>
                             </div>
                         </td>
                         <td><span class="role-badge ${roleClass}">${member.role}</span></td>
@@ -461,23 +456,21 @@
             searchInput.addEventListener('input', (e) => {
                 const query = e.target.value.toLowerCase();
                 filteredData = membersData.filter(member => 
-                    member.github_username.toLowerCase().includes(query) ||
-                    (member.full_name && member.full_name.toLowerCase().includes(query))
+                    member.username.toLowerCase().includes(query)
                 );
                 renderLeaderboard(filteredData);
             });
         }
 
-        function showMemberDetails(memberId) {
-            const member = membersData.find(m => m.id === memberId);
+        function showMemberDetails(username) {
+            const member = membersData.find(m => m.username === username);
             if (!member) return;
-            document.getElementById('modalUsername').textContent = member.github_username;
-            document.getElementById('modalFullName').textContent = member.full_name || 'N/A';
-            document.getElementById('modalBranch').textContent = member.branch || 'N/A';
-            document.getElementById('modalYear').textContent = member.year ? `Year ${member.year}` : 'N/A';
+            
+            document.getElementById('modalUsername').textContent = member.username;
+            // Removed fields not in DB (Full Name, Branch, Year) to prevent errors
             document.getElementById('modalRole').textContent = member.role;
             document.getElementById('modalPoints').textContent = member.points;
-            document.getElementById('modalGithubLink').href = `https://github.com/${member.github_username}`;
+            document.getElementById('modalGithubLink').href = `https://github.com/${member.username}`;
             document.getElementById('memberModal').style.display = 'block';
         }
 
@@ -501,7 +494,7 @@
         // Initial load
         fetchMembers();
 
-        // Optional: Auto-refresh the leaderboard every 60 seconds
+        // Auto-refresh every 60 seconds
         setInterval(fetchMembers, 60000);
     </script>
 </body>
